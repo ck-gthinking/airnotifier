@@ -88,6 +88,7 @@ class PushHandler(APIBaseHandler):
             device = request_dict.get("device", DEVICE_TYPE_FCM).lower()
             channel = request_dict.get("channel", "default")
             alert = request_dict.get("alert", "")
+            msg = request_dict.get("msg", "")
             token = self.dao.find_token(self.token)
 
             if not token:
@@ -143,11 +144,19 @@ class PushHandler(APIBaseHandler):
                         conn.process(
                             token=self.token,
                             alert=alert,
+                            msg=msg,
                             apns={**apns_default, **apnspayload},
                         )
                     except Exception as ex:
                         logging.error(ex)
-                        self.send_response(400, dict(error="error response from apns"))
+                        try:
+                            err = json_decode(ex.error)
+                            reason = err.get("reason")
+                            if reason == None:
+                                reason = ex.error
+                        except Exception:
+                            reason = ex.error
+                        self.send_response(400, dict(error="error reponse from apns", reason=reason))
                         return
                 else:
                     logging.error("no active apns connection")

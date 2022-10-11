@@ -32,7 +32,8 @@ class ApnsClient(PushService):
         self.instanceid = kwargs["instanceid"]
         self.last_token_refresh = 0
         self.token = None
-        self.http2 = hyper.HTTPConnection(BASE_URL_PROD)
+        self.http2 = None
+        self.last_active = time.perf_counter()
         #  self.http2dev = hyper.HTTPConnection(BASE_URL_DEV)
 
     def create_token(self):
@@ -66,6 +67,7 @@ class ApnsClient(PushService):
     def process(self, **kwargs):
         alert = kwargs.get("alert", None)
         apns = kwargs.get("apns", {})
+        msg = kwargs.get("msg", "")
         token = kwargs["token"]
 
         if alert is not None and not isinstance(alert, dict):
@@ -86,19 +88,36 @@ class ApnsClient(PushService):
         }
         # data structure:
         # https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/PayloadKeyReference.html#//apple_ref/doc/uid/TP40008194-CH17-SW1
-        payload_data = {"aps": {"alert": alert, **filtered_apns}}
-        self.payload = json_encode(payload_data)
+        if len(msg) > 0:
+            self.payload = msg
+        else:
+            payload_data = {"aps": {"alert": alert, **filtered_apns}}
+            self.payload = json_encode(payload_data)
 
         PATH = "/3/device/{0}".format(token)
         self.headers = self.build_headers(push_type=apns["push_type"])
 
-        self.http2.request("POST", PATH, self.payload, headers=self.headers)
-        resp = self.http2.get_response()
-
-        if resp.status >= 400:
-            #  headers = resp.headers
-            #  for k, v in headers.items():
-            #      logging.error("%s: %s" % (k.decode("utf-8"), v.decode("utf-8")))
-            body = resp.read().decode("utf-8")
-            logging.error(body)
-            raise ApnsException(400, body)
+        try_count = 1
+        while try_count <= 3:
+            try:
+                if (self.http2 == None) or (time.perf_counter() - self.last_active > 420):
+                    logging.info('Connecting to APNS server: ' + BASE_URL_PROD)
+                    self.http2 = hyper.HTTPConnection(BASE_URL_PROD)
+                self.http2.request("POST", PATH, self.payload, headers=self.headers)
+                resp = self.http2.get_response()
+            except Exception as e:
+                logging.error(repr(e))
+                self.http2 = None
+                try_count += 1
+            self.last_active = time.perf_counter()
+            if resp.status >= 400:
+                #  headers = resp.headers
+                #  for k, v in headers.items():
+                #      logging.error("%s: %s" % (k.decode("utf-8"), v.decode("utf-8")))
+                body = resp.read().decode("utf-8")
+                logging.error(body)
+                raise ApnsException(400, body)
+            else:
+                break
+        if try_count > 3:
+            raise ApnsException(400, '{"reason":"Can not connect to apns server."}')

@@ -25,7 +25,7 @@ def init_messaging_agents(masterdb):
         appname = app["shortname"]
         """ FCMClient setup """
         services["fcm"][appname] = []
-        if KEY_FCM_JSON_KEY in app and KEY_FCM_PROJECT_ID in app:
+        if KEY_FCM_JSON_KEY in app and KEY_FCM_PROJECT_ID in app and len(app[KEY_FCM_JSON_KEY]) > 0 and len(app[KEY_FCM_PROJECT_ID]) > 0:
             try:
                 fcminstance = FCMClient(
                     project_id=app[KEY_FCM_PROJECT_ID],

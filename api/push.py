@@ -89,6 +89,7 @@ class PushHandler(APIBaseHandler):
             channel = request_dict.get("channel", "default")
             alert = request_dict.get("alert", "")
             msg = request_dict.get("msg", "")
+            system_id = request_dict.get("system", "")
             token = self.dao.find_token(self.token)
 
             if not token:
@@ -109,7 +110,7 @@ class PushHandler(APIBaseHandler):
                     self.send_response(INTERNAL_SERVER_ERROR, dict(error=str(ex)))
                     return
 
-            logging.info("sending notification to %s: %s" % (device, self.token))
+            logging.info("sending notification to %s: %s - %s" % (device, system_id, self.token))
             #  if device in [DEVICE_TYPE_FCM, DEVICE_TYPE_ANDROID]:
             if device.endswith(DEVICE_TYPE_FCM):
                 fcm = request_dict.get("fcm", {})
@@ -141,6 +142,7 @@ class PushHandler(APIBaseHandler):
                 conn = self.get_apns_conn()
                 if conn:
                     try:
+                        logging.info(conn)
                         conn.process(
                             token=self.token,
                             alert=alert,

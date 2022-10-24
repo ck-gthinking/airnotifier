@@ -109,6 +109,7 @@ class ApnsClient(PushService):
                 logging.error(repr(e))
                 self.http2 = None
                 try_count += 1
+                continue
             self.last_active = time.perf_counter()
             if resp.status >= 400:
                 #  headers = resp.headers

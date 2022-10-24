@@ -21,7 +21,7 @@ class ApnsException(Exception):
 
 class ApnsClient(PushService):
     def __str__(self):
-        return " APNsClient %s: %s" % (self.appname, self.instanceid)
+        return " APNsClient %s: %x" % (self.appname, id(self))
 
     def __init__(self, **kwargs):
         self.auth_key = kwargs["auth_key"]
